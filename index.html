@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖書 ISBN 掃描器</title>
+    <!-- 引入 html5-qrcode 函式庫 CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .result-card {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 460px;
+            text-align: center;
+        }
+        #isbn-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #d32f2f;
+            display: block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>掃描書籍 ISBN 條碼</h2>
+    
+    <!-- 掃描器的相機畫面會渲染在這個 div 中 -->
+    <div id="reader"></div>
+    
+    <!-- 顯示掃描結果 -->
+    <div class="result-card">
+        <div>掃描結果：</div>
+        <span id="isbn-text">尚未掃描</span>
+    </div>
+
+    <script>
+        // 當成功掃描到條碼時會觸發此函式
+        function onScanSuccess(decodedText, decodedResult) {
+            // ISBN 通常是一串數字 (例如 9789861371955)
+            const resultElement = document.getElementById('isbn-text');
+            resultElement.innerText = decodedText;
+            resultElement.style.color = "#2e7d32"; // 掃描成功改為綠色
+
+            // 在這裡加入你呼叫後端 API 的邏輯
+            // 例如：傳送 decodedText 到你的伺服器以查詢 Google Books API
+            /*
+            fetch('/api/books/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isbn: decodedText })
+            }).then(response => response.json())
+              .then(data => alert(`建檔成功：${data.title}`));
+            */
+
+            // 如果掃描到一次後希望暫停掃描，可將下方註解打開：
+            // html5QrcodeScanner.clear();
+        }
+
+        // 當相機未對焦或未掃描到有效條碼時，會持續觸發此函式
+        function onScanFailure(error) {
+            // 通常不需要處理此錯誤，這只代表「當下畫面中沒有找到條碼」
+            // console.warn(`Scan error = ${error}`);
+        }
+
+        // 參數設定與初始化
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", // 對應到上方 HTML 標籤的 id
+            { 
+                fps: 10,  // 每秒掃描次數
+                qrbox: { width: 300, height: 100 }, // 針對書背的一維條碼，寬扁的掃描框更容易對焦
+                aspectRatio: 1.0,
+                // 限定只使用相機掃描，不顯示上傳圖片的按鈕
+                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] 
+            },
+            /* verbose= */ false
+        );
+
+        // 啟動掃描器
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    </script>
+
+</body>
+</html>
