@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>圖書 ISBN 掃描器</title>
-    <!-- 引入 html5-qrcode 函式庫 CDN -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <title>圖書建檔小幫手</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,89 +13,143 @@
             padding: 20px;
             background-color: #f0f2f5;
         }
-        #reader {
-            width: 100%;
-            max-width: 500px;
+        .container {
             background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .result-card {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: white;
+            padding: 30px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 460px;
+            max-width: 400px;
             text-align: center;
         }
-        #isbn-text {
-            font-size: 24px;
-            font-weight: bold;
-            color: #d32f2f;
-            display: block;
+        input {
+            padding: 10px;
+            font-size: 16px;
+            width: 80%;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            display: none;
+            text-align: left;
+        }
+        #book-cover {
+            max-width: 120px;
+            margin-top: 10px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        .error {
+            color: red;
             margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
-    <h2>掃描書籍 ISBN 條碼</h2>
-    
-    <!-- 掃描器的相機畫面會渲染在這個 div 中 -->
-    <div id="reader"></div>
-    
-    <!-- 顯示掃描結果 -->
-    <div class="result-card">
-        <div>掃描結果：</div>
-        <span id="isbn-text">尚未掃描</span>
+    <div class="container">
+        <h2>📚 取得圖書資訊</h2>
+        <p>請輸入或模擬掃描到的 ISBN：</p>
+        <!-- 模擬掃描器取得的 ISBN，先預設一本暢銷書的 ISBN -->
+        <input type="text" id="isbn-input" value="9789861371955" placeholder="例如: 9789861371955">
+        <button onclick="fetchBookInfo()">查詢書籍</button>
+
+        <div id="result">
+            <h3 id="book-title"></h3>
+            <p id="book-authors"></p>
+            <p id="book-description" style="font-size: 14px; color: #555;"></p>
+            <img id="book-cover" src="" alt="書本封面">
+        </div>
+        <div id="error-msg" class="error"></div>
     </div>
 
     <script>
-        // 當成功掃描到條碼時會觸發此函式
-        function onScanSuccess(decodedText, decodedResult) {
-            // ISBN 通常是一串數字 (例如 9789861371955)
-            const resultElement = document.getElementById('isbn-text');
-            resultElement.innerText = decodedText;
-            resultElement.style.color = "#2e7d32"; // 掃描成功改為綠色
+        async function fetchBookInfo() {
+            // 1. 取得使用者輸入 (或掃描器回傳) 的 ISBN
+            const isbn = document.getElementById('isbn-input').value.trim();
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error-msg');
+            
+            // 清空先前的結果
+            resultDiv.style.display = 'none';
+            errorDiv.innerText = '';
 
-            // 在這裡加入你呼叫後端 API 的邏輯
-            // 例如：傳送 decodedText 到你的伺服器以查詢 Google Books API
-            /*
-            fetch('/api/books/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isbn: decodedText })
-            }).then(response => response.json())
-              .then(data => alert(`建檔成功：${data.title}`));
-            */
+            if (!isbn) {
+                errorDiv.innerText = "請輸入 ISBN！";
+                return;
+            }
 
-            // 如果掃描到一次後希望暫停掃描，可將下方註解打開：
-            // html5QrcodeScanner.clear();
+            // 2. 構建 Google Books API 的查詢網址
+            // 使用 q=isbn:XXXXX 來精準搜尋
+            const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`;
+
+            try {
+                // 3. 發送 GET 請求
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 4. 解析回傳的 JSON 資料
+                const data = await response.json();
+
+                // 5. 判斷是否有找到書籍
+                if (data.totalItems === 0 || !data.items) {
+                    errorDiv.innerText = "找不到這本書，可能是這組 ISBN 不存在於 Google 圖書庫中。";
+                    return;
+                }
+
+                // 6. 提取需要的資料 (通常取陣列中的第一筆 items[0])
+                const volumeInfo = data.items[0].volumeInfo;
+                
+                const title = volumeInfo.title || "未知書名";
+                // 作者可能有多位，API 回傳為陣列，我們用逗號連接
+                const authors = volumeInfo.authors ? volumeInfo.authors.join(', ') : "未知作者"; 
+                // 說明文字可能很長，我們截取前 100 個字
+                const description = volumeInfo.description ? volumeInfo.description.substring(0, 100) + "..." : "無簡介";
+                
+                // 封面圖片 (可能沒有，所以要檢查 imageLinks 是否存在)
+                // Google API 預設回傳的圖片是 http，有時會被瀏覽器擋下，我們可以手動換成 https
+                let thumbnailUrl = "";
+                if (volumeInfo.imageLinks && volumeInfo.imageLinks.thumbnail) {
+                     thumbnailUrl = volumeInfo.imageLinks.thumbnail.replace("http:", "https:");
+                }
+
+                // 7. 將資料渲染到畫面上
+                document.getElementById('book-title').innerText = title;
+                document.getElementById('book-authors').innerText = `作者：${authors}`;
+                document.getElementById('book-description').innerText = description;
+                
+                const coverImg = document.getElementById('book-cover');
+                if (thumbnailUrl) {
+                    coverImg.src = thumbnailUrl;
+                    coverImg.style.display = 'block';
+                } else {
+                    coverImg.style.display = 'none';
+                }
+
+                // 顯示結果區塊
+                resultDiv.style.display = 'block';
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                errorDiv.innerText = "查詢失敗，請檢查網路連線或稍後再試。";
+            }
         }
-
-        // 當相機未對焦或未掃描到有效條碼時，會持續觸發此函式
-        function onScanFailure(error) {
-            // 通常不需要處理此錯誤，這只代表「當下畫面中沒有找到條碼」
-            // console.warn(`Scan error = ${error}`);
-        }
-
-        // 參數設定與初始化
-        let html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", // 對應到上方 HTML 標籤的 id
-            { 
-                fps: 10,  // 每秒掃描次數
-                qrbox: { width: 300, height: 100 }, // 針對書背的一維條碼，寬扁的掃描框更容易對焦
-                aspectRatio: 1.0,
-                // 限定只使用相機掃描，不顯示上傳圖片的按鈕
-                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] 
-            },
-            /* verbose= */ false
-        );
-
-        // 啟動掃描器
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     </script>
 
 </body>
