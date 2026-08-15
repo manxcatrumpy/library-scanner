@@ -6,80 +6,207 @@
     <title>圖書掃描建檔系統</title>
     <!-- 引入 html5-qrcode 函式庫 -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            background-color: #f0f2f5;
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#007bff'
+                    }
+                }
+            }
         }
-        #reader {
-            width: 100%;
-            max-width: 500px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .result-card {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 460px;
-            text-align: center;
-            display: none; /* 預設隱藏，掃描成功才顯示 */
-        }
-        .status {
-            font-size: 18px;
-            font-weight: bold;
-            color: #007bff;
-            margin-bottom: 10px;
-        }
-        #book-cover {
-            max-width: 150px;
-            margin-top: 15px;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-            display: none;
-        }
-        .error { color: #d32f2f; }
-    </style>
+    </script>
 </head>
-<body>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6 font-sans">
 
-    <h2>📚 圖書掃描建檔</h2>
+    <div class="w-full max-w-lg mb-6 text-center">
+        <h2 class="text-3xl font-bold text-gray-800 flex items-center justify-center gap-2">
+            <span class="text-4xl">📚</span> 圖書掃描建檔
+        </h2>
+        <p class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼</p>
+    </div>
     
     <!-- 掃描器畫面 -->
-    <div id="reader"></div>
+    <div id="reader" class="w-full max-w-lg bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"></div>
     
     <!-- 掃描與查詢結果 -->
-    <div class="result-card" id="result-card">
-        <div id="status-text" class="status">讀取中...</div>
-        <h3 id="book-title"></h3>
-        <p id="book-authors"></p>
-        <img id="book-cover" src="" alt="書本封面">
+    <div id="result-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+        <div class="flex flex-col items-center text-center">
+            <div id="status-text" class="text-lg font-semibold text-blue-600 mb-4 bg-blue-50 px-4 py-2 rounded-full w-full">讀取中...</div>
+            <img id="book-cover" src="" alt="書本封面" class="hidden w-32 h-auto object-cover rounded-md shadow-md mb-4 border border-gray-100">
+            <h3 id="book-title" class="text-xl font-bold text-gray-800 mb-2 leading-tight"></h3>
+            <p id="book-authors" class="text-md text-gray-600 font-medium"></p>
+        </div>
+    </div>
+
+    <!-- 手動建檔表單 -->
+    <div id="manual-entry-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+        <div class="text-center mb-6">
+            <h3 class="text-xl font-bold text-gray-800">無法自動獲取資料</h3>
+            <p class="text-sm text-gray-500 mt-1">請協助手動輸入書本資訊建檔</p>
+        </div>
+        <form id="manual-form" class="space-y-4" onsubmit="handleManualSubmit(event)">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ISBN 條碼</label>
+                <input type="text" id="manual-isbn" readonly class="w-full bg-gray-100 text-gray-500 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">書名 <span class="text-red-500">*</span></label>
+                <input type="text" id="manual-title" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">作者 <span class="text-red-500">*</span></label>
+                <input type="text" id="manual-author" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">出版年份</label>
+                <input type="number" id="manual-year" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition duration-200 mt-4">
+                儲存建檔
+            </button>
+        </form>
     </div>
 
     <script>
         // 用來記錄上一次掃描的 ISBN，避免相機在半秒內重複觸發數十次 API 請求
         let lastScannedIsbn = "";
+        
+        // 為了相容性，必須在使用者互動後 (例如第一次點擊) 才能確實播放音效
+        // 由於掃描是自動的，有些瀏覽器可能會阻擋未經互動的 AudioContext 播放
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // 1. 定義呼叫 Google Books API 的函式
-        async function fetchBookInfo(isbn) {
+        // 產生輕量的「嗶」聲
+        function playBeepSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz, A5 note
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // 更新 UI 狀態輔助函式
+        function updateStatus(message, isError = false, isSuccess = false) {
             const statusText = document.getElementById('status-text');
+            statusText.innerText = message;
+            
+            // 重置樣式
+            statusText.className = "text-lg font-semibold mb-4 px-4 py-2 rounded-full w-full text-center ";
+            
+            if (isError) {
+                statusText.classList.add("text-red-600", "bg-red-50");
+            } else if (isSuccess) {
+                statusText.classList.add("text-green-700", "bg-green-50");
+            } else {
+                statusText.classList.add("text-blue-600", "bg-blue-50");
+            }
+        }
+
+        function showResultCard(title, authors, thumbnailUrl) {
+            document.getElementById('result-card').classList.remove('hidden');
+            document.getElementById('manual-entry-card').classList.add('hidden');
+            
             const titleEl = document.getElementById('book-title');
             const authorsEl = document.getElementById('book-authors');
             const coverEl = document.getElementById('book-cover');
+            
+            updateStatus("✅ 查詢成功！", false, true);
+            titleEl.innerText = title;
+            authorsEl.innerText = `作者：${authors}`;
+            
+            if (thumbnailUrl) {
+                coverEl.src = thumbnailUrl;
+                coverEl.classList.remove('hidden');
+            } else {
+                coverEl.classList.add('hidden');
+            }
+        }
 
-            // 顯示查詢中狀態，清空舊資料
-            statusText.innerText = `條碼 ${isbn} 查詢中...`;
-            statusText.className = "status";
-            titleEl.innerText = "";
-            authorsEl.innerText = "";
-            coverEl.style.display = "none";
+        function showManualForm(isbn) {
+            document.getElementById('result-card').classList.add('hidden');
+            const manualCard = document.getElementById('manual-entry-card');
+            manualCard.classList.remove('hidden');
+            
+            document.getElementById('manual-isbn').value = isbn;
+            document.getElementById('manual-title').value = '';
+            document.getElementById('manual-author').value = '';
+            document.getElementById('manual-year').value = '';
+            
+            updateStatus("需要手動輸入資料", true);
+        }
+
+        function handleManualSubmit(e) {
+            e.preventDefault();
+            const isbn = document.getElementById('manual-isbn').value;
+            const title = document.getElementById('manual-title').value;
+            const author = document.getElementById('manual-author').value;
+            
+            alert(`手動建檔成功！\nISBN: ${isbn}\n書名: ${title}\n作者: ${author}\n(實際應用中此處將寫入資料庫)`);
+            
+            // 隱藏表單，重置掃描器狀態準備下一次掃描
+            document.getElementById('manual-entry-card').classList.add('hidden');
+            lastScannedIsbn = ""; 
+        }
+
+        // Open Library API Fallback
+        async function fetchOpenLibrary(isbn) {
+            const apiUrl = `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`;
+            try {
+                updateStatus(`Open Library 查詢中...`);
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                const bookKey = `ISBN:${isbn}`;
+                if (data && data[bookKey]) {
+                    const bookData = data[bookKey];
+                    const title = bookData.title || "未知書名";
+                    let authors = "未知作者";
+                    if (bookData.authors && bookData.authors.length > 0) {
+                        authors = bookData.authors.map(a => a.name).join(', ');
+                    }
+                    
+                    let thumbnailUrl = "";
+                    if (bookData.cover && bookData.cover.medium) {
+                        thumbnailUrl = bookData.cover.medium;
+                    }
+
+                    showResultCard(title, authors, thumbnailUrl);
+                } else {
+                    // Open Library 也查不到
+                    showManualForm(isbn);
+                }
+            } catch (error) {
+                console.error("Open Library API 錯誤:", error);
+                showManualForm(isbn);
+            }
+        }
+
+        // 1. 定義呼叫 Google Books API 的函式
+        async function fetchBookInfo(isbn) {
+            document.getElementById('result-card').classList.remove('hidden');
+            document.getElementById('manual-entry-card').classList.add('hidden');
+            
+            const coverEl = document.getElementById('book-cover');
+            coverEl.classList.add('hidden');
+            document.getElementById('book-title').innerText = "";
+            document.getElementById('book-authors').innerText = "";
+
+            updateStatus(`Google Books 查詢中 (${isbn})...`);
 
             const apiUrl = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`;
 
@@ -88,8 +215,8 @@
                 const data = await response.json();
 
                 if (data.totalItems === 0 || !data.items) {
-                    statusText.innerText = `找不到 ISBN: ${isbn} 的書籍資料`;
-                    statusText.className = "status error";
+                    // Google Books 找不到，呼叫 Fallback
+                    await fetchOpenLibrary(isbn);
                     return;
                 }
 
@@ -102,41 +229,30 @@
                      thumbnailUrl = volumeInfo.imageLinks.thumbnail.replace("http:", "https:");
                 }
 
-                // 更新畫面
-                statusText.innerText = "✅ 查詢成功！";
-                statusText.style.color = "#2e7d32";
-                titleEl.innerText = title;
-                authorsEl.innerText = `作者：${authors}`;
-                
-                if (thumbnailUrl) {
-                    coverEl.src = thumbnailUrl;
-                    coverEl.style.display = 'inline-block';
-                }
+                showResultCard(title, authors, thumbnailUrl);
 
             } catch (error) {
-                console.error("API 錯誤:", error);
-                statusText.innerText = "查詢失敗，請檢查網路連線。";
-                statusText.className = "status error";
+                console.error("Google Books API 錯誤:", error);
+                // 發生錯誤也嘗試 fallback
+                await fetchOpenLibrary(isbn);
             }
         }
 
         // 2. 掃描成功時的處理邏輯
         function onScanSuccess(decodedText, decodedResult) {
-            // 防呆：如果跟上一次掃描的條碼一樣，就直接跳過，不重複發 API
             if (decodedText === lastScannedIsbn) {
-                return;
+                return; // 防呆
             }
-            
             lastScannedIsbn = decodedText;
             
-            // 顯示結果區塊
-            document.getElementById('result-card').style.display = 'block';
+            // 播放音效
+            playBeepSound();
             
             // 將掃描到的 ISBN 傳給 API 函式
             fetchBookInfo(decodedText);
         }
 
-        // 3. 初始化掃描器 (加入優化參數)
+        // 3. 初始化掃描器
         const formatsToSupport = [
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8
@@ -159,7 +275,33 @@
 
         // 啟動掃描器
         html5QrcodeScanner.render(onScanSuccess);
-    </script>
+        
+        // 微調 html5-qrcode 自動產生的元素樣式以符合 Tailwind
+        // 由於 DOM 是非同步生成的，我們用 MutationObserver 監聽按鈕的產生
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes.length) {
+                    const readerElement = document.getElementById('reader');
+                    if (readerElement) {
+                        const buttons = readerElement.querySelectorAll('button');
+                        buttons.forEach(btn => {
+                            if (!btn.classList.contains('tailwind-styled')) {
+                                btn.className = "tailwind-styled bg-white text-gray-800 font-semibold py-2 px-4 border border-gray-400 rounded shadow hover:bg-gray-100 transition m-1";
+                            }
+                        });
+                        const links = readerElement.querySelectorAll('a');
+                        links.forEach(link => {
+                            if (!link.classList.contains('tailwind-styled')) {
+                                link.className = "tailwind-styled text-blue-600 hover:underline mx-2 text-sm";
+                            }
+                        });
+                    }
+                }
+            });
+        });
+        
+        observer.observe(document.getElementById('reader'), { childList: true, subtree: true });
 
+    </script>
 </body>
 </html>
