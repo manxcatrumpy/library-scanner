@@ -188,7 +188,7 @@
             const year = document.getElementById('manual-year').value;
             
             try {
-                const response = await fetch('http://localhost:3000/api/books', {
+                const response = await fetch('/api/books', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -217,7 +217,7 @@
 
         // 本地後端 API (Node.js) 的 Fallback 與爬蟲
         async function fetchLocalAPI(isbn) {
-            const apiUrl = `http://localhost:3000/api/lookup/${isbn}`;
+            const apiUrl = `/api/lookup/${isbn}`;
             try {
                 updateStatus(`本地爬蟲查詢中...`);
                 const response = await fetch(apiUrl);
@@ -248,7 +248,7 @@
 
         async function saveBookToDatabase(bookData) {
             try {
-                const response = await fetch('http://localhost:3000/api/books', {
+                const response = await fetch('/api/books', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(bookData)
@@ -271,7 +271,7 @@
             listContainer.innerHTML = '<div class="text-center text-gray-500 py-4">載入中...</div>';
             
             try {
-                const response = await fetch('http://localhost:3000/api/books');
+                const response = await fetch('/api/books');
                 const books = await response.json();
                 
                 if (books.length === 0) {
@@ -333,7 +333,7 @@
             }
 
             try {
-                const response = await fetch(`http://localhost:3000/api/books/${id}`, {
+                const response = await fetch(`/api/books/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, author })
@@ -356,7 +356,7 @@
             }
 
             try {
-                const response = await fetch(`http://localhost:3000/api/books/${id}`, {
+                const response = await fetch(`/api/books/${id}`, {
                     method: 'DELETE'
                 });
 
