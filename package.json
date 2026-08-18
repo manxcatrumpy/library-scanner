@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server/index.js",
+    "start": "node -r dotenv/config server/index.js",
     "postinstall": "npx prisma db push && prisma generate"
   },
   "keywords": [],
@@ -15,6 +15,7 @@
     "@prisma/client": "^5.22.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1"
   },
   "devDependencies": {
