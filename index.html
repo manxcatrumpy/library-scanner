@@ -27,8 +27,21 @@
             <span class="text-4xl">📚</span> 圖書掃描建檔
         </h2>
         <p class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼</p>
+        <button onclick="toggleBookList()" class="mt-4 text-blue-600 font-semibold hover:underline border border-blue-600 rounded-lg px-4 py-2 hover:bg-blue-50 transition">
+            📂 查看已建檔書籍清單
+        </button>
     </div>
     
+    <!-- 手動搜尋 ISBN -->
+    <div class="w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+        <form id="search-form" class="flex gap-2" onsubmit="handleSearchSubmit(event)">
+            <input type="text" id="search-isbn" placeholder="手動輸入 ISBN 條碼..." required class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200">
+                查詢
+            </button>
+        </form>
+    </div>
+
     <!-- 掃描器畫面 -->
     <div id="reader" class="w-full max-w-lg bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"></div>
     
@@ -69,6 +82,14 @@
                 儲存建檔
             </button>
         </form>
+    </div>
+
+    <!-- 已建檔書籍清單 -->
+    <div id="book-list-container" class="hidden w-full max-w-lg mt-6">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">📦 館藏清單</h3>
+        <div id="book-list" class="space-y-3">
+            <!-- 書籍列表會動態生成在這裡 -->
+        </div>
     </div>
 
     <script>
@@ -142,7 +163,7 @@
             const manualCard = document.getElementById('manual-entry-card');
             manualCard.classList.remove('hidden');
             
-            document.getElementById('manual-isbn').value = isbn;
+            document.getElementById('manual-isbn').value = isbn || '';
             document.getElementById('manual-title').value = '';
             document.getElementById('manual-author').value = '';
             document.getElementById('manual-year').value = '';
@@ -150,17 +171,214 @@
             updateStatus("需要手動輸入資料", true);
         }
 
-        function handleManualSubmit(e) {
+        function handleSearchSubmit(e) {
+            e.preventDefault();
+            const isbn = document.getElementById('search-isbn').value.trim();
+            if (isbn) {
+                lastScannedIsbn = isbn;
+                fetchBookInfo(isbn);
+            }
+        }
+
+        async function handleManualSubmit(e) {
             e.preventDefault();
             const isbn = document.getElementById('manual-isbn').value;
             const title = document.getElementById('manual-title').value;
             const author = document.getElementById('manual-author').value;
+            const year = document.getElementById('manual-year').value;
             
-            alert(`手動建檔成功！\nISBN: ${isbn}\n書名: ${title}\n作者: ${author}\n(實際應用中此處將寫入資料庫)`);
+            try {
+                const response = await fetch('/api/books', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        isbn: isbn,
+                        title: title,
+                        author: author,
+                        publishYear: year
+                    })
+                });
+                
+                if (response.ok) {
+                    alert(`手動建檔成功並寫入資料庫！\nISBN: ${isbn}\n書名: ${title}`);
+                } else {
+                    const err = await response.json();
+                    alert(`寫入資料庫失敗: ${err.error}`);
+                }
+            } catch (error) {
+                console.error("Save error:", error);
+                alert("無法連線至本地伺服器，請確認伺服器已啟動");
+            }
             
             // 隱藏表單，重置掃描器狀態準備下一次掃描
             document.getElementById('manual-entry-card').classList.add('hidden');
             lastScannedIsbn = ""; 
+        }
+
+        // 本地後端 API (Node.js) 的 Fallback 與爬蟲
+        async function fetchLocalAPI(isbn) {
+            const apiUrl = `/api/lookup/${isbn}`;
+            try {
+                updateStatus(`本地爬蟲查詢中...`);
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Local API not found');
+                }
+                
+                const data = await response.json();
+                
+                if (data && data.title) {
+                    showResultCard(data.title, data.author, data.coverUrl);
+                    // 順便儲存到資料庫
+                    saveBookToDatabase({
+                        isbn: isbn,
+                        title: data.title,
+                        author: data.author,
+                        coverUrl: data.coverUrl
+                    });
+                } else {
+                    showManualForm(isbn);
+                }
+            } catch (error) {
+                console.error("Local API 錯誤:", error);
+                showManualForm(isbn);
+            }
+        }
+
+        async function saveBookToDatabase(bookData) {
+            try {
+                const response = await fetch('/api/books', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bookData)
+                });
+                if (response.ok) {
+                    console.log('Book saved to database successfully');
+                    // 如果目前正在看書單，就重新載入
+                    if (!document.getElementById('book-list-container').classList.contains('hidden')) {
+                        loadBooks();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to save to database:', error);
+            }
+        }
+
+        // 載入並顯示已建檔書籍
+        async function loadBooks() {
+            const listContainer = document.getElementById('book-list');
+            listContainer.innerHTML = '<div class="text-center text-gray-500 py-4">載入中...</div>';
+            
+            try {
+                const response = await fetch('/api/books');
+                const books = await response.json();
+                
+                if (books.length === 0) {
+                    listContainer.innerHTML = '<div class="text-center text-gray-500 py-4">目前還沒有建檔任何書籍喔！</div>';
+                    return;
+                }
+
+                listContainer.innerHTML = books.map(book => `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200" id="book-container-${book.id}">
+                        <!-- 顯示模式 -->
+                        <div id="book-view-${book.id}" class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <span class="text-xs text-gray-400 mb-1">ISBN: ${book.isbn}</span>
+                                <h4 class="text-lg font-bold text-gray-800 leading-snug">${book.title}</h4>
+                                <p class="text-sm text-gray-600 mt-1">${book.author}</p>
+                            </div>
+                            <div class="flex gap-2 ml-2">
+                                <button onclick="enableEdit(${book.id})" class="text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition">編輯</button>
+                                <button onclick="deleteBook(${book.id})" class="text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition">刪除</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 編輯模式 -->
+                        <div id="book-edit-${book.id}" class="hidden flex-col gap-2 mt-2 border-t pt-2 border-gray-100">
+                            <input type="text" id="edit-title-${book.id}" value="${book.title.replace(/"/g, '&quot;')}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500" placeholder="書名">
+                            <input type="text" id="edit-author-${book.id}" value="${book.author.replace(/"/g, '&quot;')}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500" placeholder="作者">
+                            <div class="flex justify-end gap-2 mt-1">
+                                <button onclick="cancelEdit(${book.id})" class="text-sm text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition">取消</button>
+                                <button onclick="saveBook(${book.id})" class="text-sm text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded shadow transition">儲存</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error("載入書單失敗:", error);
+                listContainer.innerHTML = '<div class="text-center text-red-500 py-4">無法連線至伺服器讀取書單</div>';
+            }
+        }
+
+        function enableEdit(id) {
+            document.getElementById(`book-view-${id}`).classList.add('hidden');
+            document.getElementById(`book-edit-${id}`).classList.remove('hidden');
+            document.getElementById(`book-edit-${id}`).classList.add('flex');
+        }
+
+        function cancelEdit(id) {
+            document.getElementById(`book-edit-${id}`).classList.add('hidden');
+            document.getElementById(`book-edit-${id}`).classList.remove('flex');
+            document.getElementById(`book-view-${id}`).classList.remove('hidden');
+        }
+
+        async function saveBook(id) {
+            const title = document.getElementById(`edit-title-${id}`).value.trim();
+            const author = document.getElementById(`edit-author-${id}`).value.trim();
+            
+            if (!title) {
+                alert("書名不能為空！");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/books/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, author })
+                });
+
+                if (response.ok) {
+                    loadBooks(); // 重新載入列表
+                } else {
+                    alert("更新失敗！");
+                }
+            } catch (error) {
+                console.error("Error updating book:", error);
+                alert("連線錯誤，無法更新");
+            }
+        }
+
+        async function deleteBook(id) {
+            if (!confirm("確定要刪除這本書嗎？")) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/books/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadBooks(); // 重新載入列表
+                } else {
+                    alert("刪除失敗！");
+                }
+            } catch (error) {
+                console.error("Error deleting book:", error);
+                alert("連線錯誤，無法刪除");
+            }
+        }
+
+        function toggleBookList() {
+            const container = document.getElementById('book-list-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                loadBooks();
+            } else {
+                container.classList.add('hidden');
+            }
         }
 
         // Open Library API Fallback
@@ -186,13 +404,14 @@
                     }
 
                     showResultCard(title, authors, thumbnailUrl);
+                    saveBookToDatabase({ isbn, title, author: authors, coverUrl: thumbnailUrl });
                 } else {
-                    // Open Library 也查不到
-                    showManualForm(isbn);
+                    // Open Library 也查不到，呼叫本地爬蟲
+                    await fetchLocalAPI(isbn);
                 }
             } catch (error) {
                 console.error("Open Library API 錯誤:", error);
-                showManualForm(isbn);
+                await fetchLocalAPI(isbn);
             }
         }
 
@@ -230,6 +449,7 @@
                 }
 
                 showResultCard(title, authors, thumbnailUrl);
+                saveBookToDatabase({ isbn, title, author: authors, coverUrl: thumbnailUrl, publishYear: volumeInfo.publishedDate });
 
             } catch (error) {
                 console.error("Google Books API 錯誤:", error);

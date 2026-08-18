@@ -1,0 +1,39 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String
+  studentId     String         @unique // 學號或員工編號
+  borrowRecords BorrowRecord[]
+  createdAt     DateTime       @default(now())
+}
+
+model Book {
+  id            Int            @id @default(autoincrement())
+  isbn          String         @unique
+  title         String
+  author        String
+  publishYear   Int?
+  coverUrl      String?
+  status        String         @default("AVAILABLE") // AVAILABLE, BORROWED
+  borrowRecords BorrowRecord[]
+  createdAt     DateTime       @default(now())
+}
+
+model BorrowRecord {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+  bookId     Int
+  book       Book      @relation(fields: [bookId], references: [id])
+  borrowDate DateTime  @default(now())
+  returnDate DateTime?
+  status     String    @default("ACTIVE") // ACTIVE, RETURNED
+}
