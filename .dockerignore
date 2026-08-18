@@ -1,6 +1,0 @@
-node_modules/
-server/node_modules/
-server/prisma/dev.db
-server/prisma/dev.db-journal
-.git
-.env
