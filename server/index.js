@@ -12,9 +12,11 @@ app.use(express.json());
 // Routes
 const booksRouter = require('./routes/books');
 const lookupRouter = require('./routes/lookup');
+const authRouter = require('./routes/auth');
 
 app.use('/api/books', booksRouter);
 app.use('/api/lookup', lookupRouter);
+app.use('/api/auth', authRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
