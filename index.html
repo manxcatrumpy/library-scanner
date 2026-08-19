@@ -75,8 +75,8 @@
             </button>
         </div>
         
-        <!-- 手動搜尋 ISBN (僅管理員可用) -->
-        <div id="search-container" class="w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+        <!-- 手動搜尋 ISBN -->
+        <div id="search-container" class="hidden w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <form id="search-form" class="flex gap-2" onsubmit="handleSearchSubmit(event)">
                 <input type="text" id="search-isbn" placeholder="手動輸入 ISBN 條碼..." required class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200">
@@ -211,10 +211,10 @@
                             // document.getElementById('reader').classList.remove('hidden');
                             // html5QrcodeScanner.render(onScanSuccess);
                         } else {
-                            // 不是管理員，隱藏建檔專用的搜尋列
+                            // 不是管理員，隱藏建檔專用的掃描器，但開放搜尋列
                             // document.getElementById('scan-instruction').classList.add('hidden');
                             // document.getElementById('reader').classList.add('hidden');
-                            document.getElementById('search-container').classList.add('hidden');
+                            document.getElementById('search-container').classList.remove('hidden');
                             // 自動顯示書單
                             toggleBookList(true);
                         }
@@ -397,7 +397,40 @@
             const isbn = document.getElementById('search-isbn').value.trim();
             if (isbn) {
                 lastScannedIsbn = isbn;
-                fetchBookInfo(isbn);
+                if (currentUser && currentUser.role === 'ADMIN') {
+                    // 管理員：搜尋外部 API 並建檔
+                    fetchBookInfo(isbn);
+                } else {
+                    // 一般使用者：只在本地資料庫搜尋
+                    fetchLocalBookOnly(isbn);
+                }
+            }
+        }
+
+        // 一般使用者專用的本地搜尋
+        async function fetchLocalBookOnly(isbn) {
+            document.getElementById('result-card').classList.remove('hidden');
+            document.getElementById('manual-entry-card').classList.add('hidden');
+            
+            const coverEl = document.getElementById('book-cover');
+            coverEl.classList.add('hidden');
+            document.getElementById('book-title').innerText = "";
+            document.getElementById('book-authors').innerText = "";
+
+            updateStatus(`搜尋館藏中 (${isbn})...`);
+
+            try {
+                const response = await fetch(`/api/books/search/${isbn}`);
+                
+                if (response.ok) {
+                    const book = await response.json();
+                    showResultCard(book.title, book.author, book.coverUrl);
+                } else {
+                    updateStatus(`館藏中找不到這本書 (ISBN: ${isbn})`, true);
+                }
+            } catch (error) {
+                console.error("Local search error:", error);
+                updateStatus("搜尋失敗，請稍後再試", true);
             }
         }
 

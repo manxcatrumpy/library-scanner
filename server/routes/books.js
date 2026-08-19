@@ -52,6 +52,25 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/books/search/:isbn - 根據 ISBN 搜尋本地書籍
+router.get('/search/:isbn', async (req, res) => {
+    try {
+        const { isbn } = req.params;
+        const book = await prisma.book.findUnique({
+            where: { isbn }
+        });
+        
+        if (!book) {
+            return res.status(404).json({ error: 'Book not found in local catalog' });
+        }
+        
+        res.json(book);
+    } catch (error) {
+        console.error('Error searching book by isbn:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // PUT /api/books/:id - 編輯書籍
 router.put('/:id', isAdmin, async (req, res) => {
     try {
