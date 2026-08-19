@@ -1,30 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const jwt = require('jsonwebtoken');
+const { isAdmin } = require('../middlewares/authMiddleware');
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-fallback-secret-key-please-change';
-
-// Middleware: 驗證是否為管理員
-const isAdmin = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: '未授權' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded.role !== 'ADMIN') {
-            return res.status(403).json({ error: '權限不足，需要管理員權限' });
-        }
-        req.user = decoded;
-        next();
-    } catch (err) {
-        res.status(401).json({ error: 'Token 無效或已過期' });
-    }
-};
 
 // 取得所有使用者列表 (管理員專用)
 router.get('/users', isAdmin, async (req, res) => {

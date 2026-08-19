@@ -69,14 +69,14 @@
         </div>
 
         <div class="w-full max-w-lg mb-6 text-center">
-            <p class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼</p>
+            <p id="scan-instruction" class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼以建檔</p>
             <button onclick="toggleBookList()" class="mt-4 text-blue-600 font-semibold hover:underline border border-blue-600 rounded-lg px-4 py-2 hover:bg-blue-50 transition">
                 📂 查看已建檔書籍清單
             </button>
         </div>
         
-        <!-- 手動搜尋 ISBN -->
-        <div class="w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+        <!-- 手動搜尋 ISBN (僅管理員可用) -->
+        <div id="search-container" class="w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <form id="search-form" class="flex gap-2" onsubmit="handleSearchSubmit(event)">
                 <input type="text" id="search-isbn" placeholder="手動輸入 ISBN 條碼..." required class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200">
@@ -150,6 +150,7 @@
     <script>
         // 用來記錄上一次掃描的 ISBN，避免相機在半秒內重複觸發數十次 API 請求
         let lastScannedIsbn = "";
+        let currentUser = null;
         
         // 驗證並加載登入狀態
         async function checkAuthStatus() {
@@ -176,7 +177,8 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    const user = data.user;
+                    currentUser = data.user;
+                    const user = currentUser;
                     
                     // 顯示導覽列的個人檔案
                     document.getElementById('login-btn').classList.add('hidden');
@@ -200,9 +202,21 @@
                         document.getElementById('app-content').classList.remove('hidden');
                         document.getElementById('app-content').classList.add('flex');
                         
-                        // 如果是管理員，顯示管理員按鈕
+                        // 如果是管理員，顯示管理員按鈕與掃描建檔功能
                         if (user.role === 'ADMIN') {
                             document.getElementById('admin-panel-btn-container').classList.remove('hidden');
+                            document.getElementById('scan-instruction').classList.remove('hidden');
+                            document.getElementById('reader').classList.remove('hidden');
+                            document.getElementById('search-container').classList.remove('hidden');
+                            // 啟動掃描器
+                            html5QrcodeScanner.render(onScanSuccess);
+                        } else {
+                            // 不是管理員，隱藏建檔專用的掃描器與搜尋列
+                            document.getElementById('scan-instruction').classList.add('hidden');
+                            document.getElementById('reader').classList.add('hidden');
+                            document.getElementById('search-container').classList.add('hidden');
+                            // 自動顯示書單
+                            toggleBookList(true);
                         }
                     } else {
                         // REJECTED
@@ -394,10 +408,14 @@
             const author = document.getElementById('manual-author').value;
             const year = document.getElementById('manual-year').value;
             
+            const token = localStorage.getItem('auth_token');
             try {
                 const response = await fetch('/api/books', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         isbn: isbn,
                         title: title,
@@ -454,10 +472,14 @@
         }
 
         async function saveBookToDatabase(bookData) {
+            const token = localStorage.getItem('auth_token');
             try {
                 const response = await fetch('/api/books', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(bookData)
                 });
                 if (response.ok) {
@@ -486,6 +508,8 @@
                     return;
                 }
 
+                const isAdmin = currentUser && currentUser.role === 'ADMIN';
+
                 listContainer.innerHTML = books.map(book => `
                     <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200" id="book-container-${book.id}">
                         <!-- 顯示模式 -->
@@ -496,12 +520,15 @@
                                 <p class="text-sm text-gray-600 mt-1">${book.author}</p>
                             </div>
                             <div class="flex gap-2 ml-2">
+                                ${isAdmin ? `
                                 <button onclick="enableEdit(${book.id})" class="text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition">編輯</button>
                                 <button onclick="deleteBook(${book.id})" class="text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition">刪除</button>
+                                ` : ''}
                             </div>
                         </div>
                         
                         <!-- 編輯模式 -->
+                        ${isAdmin ? `
                         <div id="book-edit-${book.id}" class="hidden flex-col gap-2 mt-2 border-t pt-2 border-gray-100">
                             <input type="text" id="edit-title-${book.id}" value="${book.title.replace(/"/g, '&quot;')}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500" placeholder="書名">
                             <input type="text" id="edit-author-${book.id}" value="${book.author.replace(/"/g, '&quot;')}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500" placeholder="作者">
@@ -510,6 +537,7 @@
                                 <button onclick="saveBook(${book.id})" class="text-sm text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded shadow transition">儲存</button>
                             </div>
                         </div>
+                        ` : ''}
                     </div>
                 `).join('');
             } catch (error) {
@@ -533,6 +561,7 @@
         async function saveBook(id) {
             const title = document.getElementById(`edit-title-${id}`).value.trim();
             const author = document.getElementById(`edit-author-${id}`).value.trim();
+            const token = localStorage.getItem('auth_token');
             
             if (!title) {
                 alert("書名不能為空！");
@@ -542,7 +571,10 @@
             try {
                 const response = await fetch(`/api/books/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ title, author })
                 });
 
@@ -562,9 +594,11 @@
                 return;
             }
 
+            const token = localStorage.getItem('auth_token');
             try {
                 const response = await fetch(`/api/books/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (response.ok) {
@@ -578,9 +612,9 @@
             }
         }
 
-        function toggleBookList() {
+        function toggleBookList(forceOpen = false) {
             const container = document.getElementById('book-list-container');
-            if (container.classList.contains('hidden')) {
+            if (forceOpen || container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
                 loadBooks();
             } else {
