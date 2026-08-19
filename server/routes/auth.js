@@ -93,7 +93,7 @@ router.get('/line/callback', async (req, res) => {
 
         // 發行我們的 JWT Token
         const appToken = jwt.sign(
-            { id: user.id, name: user.name, role: user.role, pictureUrl: user.pictureUrl },
+            { id: user.id, name: user.name, role: user.role, status: user.status, pictureUrl: user.pictureUrl },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -107,7 +107,7 @@ router.get('/line/callback', async (req, res) => {
     }
 });
 
-// 3. 取得目前登入使用者狀態 (驗證 Token)
+// 3. 取得目前登入使用者狀態 (驗證 Token 並從 DB 抓最新狀態)
 router.get('/me', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -117,7 +117,25 @@ router.get('/me', async (req, res) => {
     const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        res.json({ user: decoded });
+        
+        // 抓取最新狀態
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.id }
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: '找不到使用者' });
+        }
+
+        res.json({ 
+            user: {
+                id: user.id,
+                name: user.name,
+                pictureUrl: user.pictureUrl,
+                role: user.role,
+                status: user.status
+            }
+        });
     } catch (err) {
         res.status(401).json({ error: 'Token 無效或已過期' });
     }

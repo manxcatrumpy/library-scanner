@@ -39,71 +39,111 @@
 
     <div class="w-full max-w-lg mb-6 text-center -mt-4">
         <h2 class="text-3xl font-bold text-gray-800 flex items-center justify-center gap-2">
-            <span class="text-4xl">📚</span> 圖書掃描建檔
+            <span class="text-4xl">📚</span> 圖書借閱系統
         </h2>
-        <p class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼</p>
-        <button onclick="toggleBookList()" class="mt-4 text-blue-600 font-semibold hover:underline border border-blue-600 rounded-lg px-4 py-2 hover:bg-blue-50 transition">
-            📂 查看已建檔書籍清單
-        </button>
-    </div>
-    
-    <!-- 手動搜尋 ISBN -->
-    <div class="w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
-        <form id="search-form" class="flex gap-2" onsubmit="handleSearchSubmit(event)">
-            <input type="text" id="search-isbn" placeholder="手動輸入 ISBN 條碼..." required class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200">
-                查詢
-            </button>
-        </form>
     </div>
 
-    <!-- 掃描器畫面 -->
-    <div id="reader" class="w-full max-w-lg bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"></div>
-    
-    <!-- 掃描與查詢結果 -->
-    <div id="result-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-        <div class="flex flex-col items-center text-center">
-            <div id="status-text" class="text-lg font-semibold text-blue-600 mb-4 bg-blue-50 px-4 py-2 rounded-full w-full">讀取中...</div>
-            <img id="book-cover" src="" alt="書本封面" class="hidden w-32 h-auto object-cover rounded-md shadow-md mb-4 border border-gray-100">
-            <h3 id="book-title" class="text-xl font-bold text-gray-800 mb-2 leading-tight"></h3>
-            <p id="book-authors" class="text-md text-gray-600 font-medium"></p>
+    <!-- 1. 訪客未登入歡迎畫面 -->
+    <div id="welcome-screen" class="w-full max-w-lg bg-white rounded-xl shadow-sm p-8 text-center border border-gray-200 mt-4">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4">歡迎使用</h3>
+        <p class="text-gray-600 mb-8">請使用 LINE 登入以開始借閱書籍或協助建檔。</p>
+        <a href="/api/auth/line" class="inline-flex bg-[#06C755] hover:bg-[#05b04b] text-white font-bold py-3 px-8 rounded-full shadow-lg items-center gap-2 transition duration-200 text-lg">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.036 9.608.391.084.922.258 1.057.592.121.298.077.757.037 1.059l-.173 1.05c-.053.328-.242 1.289 1.134.708 1.375-.582 7.42-4.372 9.684-7.147C23.366 14.12 24 12.317 24 10.304z"/></svg>
+            使用 LINE 登入
+        </a>
+    </div>
+
+    <!-- 2. 等待審核畫面 -->
+    <div id="pending-screen" class="hidden w-full max-w-lg bg-yellow-50 rounded-xl shadow-sm p-8 text-center border border-yellow-200 mt-4">
+        <h3 class="text-2xl font-bold text-yellow-800 mb-2">審核中 ⏳</h3>
+        <p class="text-yellow-700">您的帳號已經註冊成功，目前正在等待管理員核准權限。<br>請稍後再回來查看！</p>
+    </div>
+
+    <!-- 3. 主應用程式畫面 (核准後才顯示) -->
+    <div id="app-content" class="hidden w-full flex-col items-center">
+        <!-- 管理員按鈕 -->
+        <div id="admin-panel-btn-container" class="hidden w-full max-w-lg mb-4 text-right">
+            <button onclick="toggleAdminPanel()" class="text-white bg-purple-600 hover:bg-purple-700 font-semibold py-2 px-4 rounded-lg shadow transition text-sm">
+                ⚙️ 會員管理後台
+            </button>
+        </div>
+
+        <div class="w-full max-w-lg mb-6 text-center">
+            <p class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼</p>
+            <button onclick="toggleBookList()" class="mt-4 text-blue-600 font-semibold hover:underline border border-blue-600 rounded-lg px-4 py-2 hover:bg-blue-50 transition">
+                📂 查看已建檔書籍清單
+            </button>
+        </div>
+        
+        <!-- 手動搜尋 ISBN -->
+        <div class="w-full max-w-lg mb-4 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+            <form id="search-form" class="flex gap-2" onsubmit="handleSearchSubmit(event)">
+                <input type="text" id="search-isbn" placeholder="手動輸入 ISBN 條碼..." required class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200">
+                    查詢
+                </button>
+            </form>
+        </div>
+
+        <!-- 掃描器畫面 -->
+        <div id="reader" class="w-full max-w-lg bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"></div>
+        
+        <!-- 掃描與查詢結果 -->
+        <div id="result-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <div class="flex flex-col items-center text-center">
+                <div id="status-text" class="text-lg font-semibold text-blue-600 mb-4 bg-blue-50 px-4 py-2 rounded-full w-full">讀取中...</div>
+                <img id="book-cover" src="" alt="書本封面" class="hidden w-32 h-auto object-cover rounded-md shadow-md mb-4 border border-gray-100">
+                <h3 id="book-title" class="text-xl font-bold text-gray-800 mb-2 leading-tight"></h3>
+                <p id="book-authors" class="text-md text-gray-600 font-medium"></p>
+            </div>
+        </div>
+
+        <!-- 手動建檔表單 -->
+        <div id="manual-entry-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <div class="text-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">無法自動獲取資料</h3>
+                <p class="text-sm text-gray-500 mt-1">請協助手動輸入書本資訊建檔</p>
+            </div>
+            <form id="manual-form" class="space-y-4" onsubmit="handleManualSubmit(event)">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ISBN 條碼</label>
+                    <input type="text" id="manual-isbn" readonly class="w-full bg-gray-100 text-gray-500 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">書名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="manual-title" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">作者 <span class="text-red-500">*</span></label>
+                    <input type="text" id="manual-author" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">出版年份</label>
+                    <input type="number" id="manual-year" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition duration-200 mt-4">
+                    儲存建檔
+                </button>
+            </form>
+        </div>
+
+        <!-- 已建檔書籍清單 -->
+        <div id="book-list-container" class="hidden w-full max-w-lg mt-6">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">📦 館藏清單</h3>
+            <div id="book-list" class="space-y-3">
+                <!-- 書籍列表會動態生成在這裡 -->
+            </div>
         </div>
     </div>
 
-    <!-- 手動建檔表單 -->
-    <div id="manual-entry-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-        <div class="text-center mb-6">
-            <h3 class="text-xl font-bold text-gray-800">無法自動獲取資料</h3>
-            <p class="text-sm text-gray-500 mt-1">請協助手動輸入書本資訊建檔</p>
+    <!-- 4. 管理員後台畫面 -->
+    <div id="admin-panel" class="hidden w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-4">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 class="text-2xl font-bold text-gray-800">⚙️ 會員管理</h3>
+            <button onclick="toggleAdminPanel()" class="text-gray-500 hover:text-gray-700 font-bold text-xl">&times;</button>
         </div>
-        <form id="manual-form" class="space-y-4" onsubmit="handleManualSubmit(event)">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">ISBN 條碼</label>
-                <input type="text" id="manual-isbn" readonly class="w-full bg-gray-100 text-gray-500 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">書名 <span class="text-red-500">*</span></label>
-                <input type="text" id="manual-title" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">作者 <span class="text-red-500">*</span></label>
-                <input type="text" id="manual-author" required class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">出版年份</label>
-                <input type="number" id="manual-year" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
-            </div>
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition duration-200 mt-4">
-                儲存建檔
-            </button>
-        </form>
-    </div>
-
-    <!-- 已建檔書籍清單 -->
-    <div id="book-list-container" class="hidden w-full max-w-lg mt-6">
-        <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">📦 館藏清單</h3>
-        <div id="book-list" class="space-y-3">
-            <!-- 書籍列表會動態生成在這裡 -->
+        <div id="user-list" class="space-y-3">
+            <!-- 使用者清單動態生成 -->
         </div>
     </div>
 
@@ -123,7 +163,11 @@
             }
 
             const token = localStorage.getItem('auth_token');
-            if (!token) return;
+            if (!token) {
+                // 未登入
+                document.getElementById('welcome-screen').classList.remove('hidden');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/auth/me', {
@@ -132,26 +176,129 @@
                 
                 if (response.ok) {
                     const data = await response.json();
+                    const user = data.user;
+                    
+                    // 顯示導覽列的個人檔案
                     document.getElementById('login-btn').classList.add('hidden');
                     document.getElementById('user-profile').classList.remove('hidden');
-                    document.getElementById('user-name').innerText = data.user.name;
-                    if (data.user.pictureUrl) {
-                        document.getElementById('user-avatar').src = data.user.pictureUrl;
+                    document.getElementById('user-profile').classList.add('flex');
+                    document.getElementById('user-name').innerText = user.name;
+                    if (user.pictureUrl) {
+                        document.getElementById('user-avatar').src = user.pictureUrl;
                     }
+
+                    // 隱藏登入歡迎畫面
+                    document.getElementById('welcome-screen').classList.add('hidden');
+
+                    // 判斷權限狀態
+                    if (user.status === 'PENDING') {
+                        document.getElementById('pending-screen').classList.remove('hidden');
+                        document.getElementById('app-content').classList.add('hidden');
+                        document.getElementById('app-content').classList.remove('flex');
+                    } else if (user.status === 'APPROVED' || user.role === 'ADMIN') {
+                        document.getElementById('pending-screen').classList.add('hidden');
+                        document.getElementById('app-content').classList.remove('hidden');
+                        document.getElementById('app-content').classList.add('flex');
+                        
+                        // 如果是管理員，顯示管理員按鈕
+                        if (user.role === 'ADMIN') {
+                            document.getElementById('admin-panel-btn-container').classList.remove('hidden');
+                        }
+                    } else {
+                        // REJECTED
+                        alert('您的帳號已被拒絕使用。');
+                        logout();
+                    }
+
                 } else {
                     // Token 失效
                     logout();
                 }
             } catch (err) {
                 console.error('Auth error:', err);
+                logout();
             }
         }
 
         function logout() {
             localStorage.removeItem('auth_token');
-            document.getElementById('login-btn').classList.remove('hidden');
-            document.getElementById('user-profile').classList.add('hidden');
+            window.location.reload();
         }
+
+        // --- 管理員功能 ---
+        function toggleAdminPanel() {
+            const panel = document.getElementById('admin-panel');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                document.getElementById('app-content').classList.add('hidden');
+                document.getElementById('app-content').classList.remove('flex');
+                loadUsers();
+            } else {
+                panel.classList.add('hidden');
+                document.getElementById('app-content').classList.remove('hidden');
+                document.getElementById('app-content').classList.add('flex');
+            }
+        }
+
+        async function loadUsers() {
+            const token = localStorage.getItem('auth_token');
+            const listContainer = document.getElementById('user-list');
+            listContainer.innerHTML = '<div class="text-center text-gray-500 py-4">載入中...</div>';
+            
+            try {
+                const response = await fetch('/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const users = await response.json();
+                
+                if (users.error) {
+                    listContainer.innerHTML = `<div class="text-center text-red-500 py-4">${users.error}</div>`;
+                    return;
+                }
+
+                listContainer.innerHTML = users.map(user => `
+                    <div class="bg-gray-50 p-4 rounded-lg flex items-center justify-between border border-gray-200">
+                        <div class="flex items-center gap-3">
+                            <img src="${user.pictureUrl || ''}" class="w-10 h-10 rounded-full border">
+                            <div>
+                                <div class="font-bold text-gray-800">${user.name} <span class="text-xs text-gray-400 font-normal">(${user.role})</span></div>
+                                <div class="text-xs ${user.status === 'APPROVED' ? 'text-green-600' : 'text-yellow-600'}">${user.status}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            ${user.status !== 'APPROVED' ? `<button onclick="updateUserStatus(${user.id}, 'APPROVED')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-1 rounded">核准</button>` : ''}
+                            ${user.status !== 'REJECTED' && user.role !== 'ADMIN' ? `<button onclick="updateUserStatus(${user.id}, 'REJECTED')" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded">拒絕</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error("載入使用者失敗:", error);
+            }
+        }
+
+        async function updateUserStatus(userId, status) {
+            const token = localStorage.getItem('auth_token');
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/status`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                if (response.ok) {
+                    loadUsers(); // 重新載入列表
+                } else {
+                    const data = await response.json();
+                    alert("更新失敗：" + data.error);
+                }
+            } catch (error) {
+                console.error("更新失敗:", error);
+            }
+        }
+        // --- 結束管理員功能 ---
 
         // 頁面載入時檢查登入狀態
         window.addEventListener('DOMContentLoaded', checkAuthStatus);

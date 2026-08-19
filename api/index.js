@@ -5,6 +5,7 @@ const cors = require('cors');
 const booksRouter = require('../server/routes/books');
 const lookupRouter = require('../server/routes/lookup');
 const authRouter = require('../server/routes/auth');
+const adminRouter = require('../server/routes/admin');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use('/api/books', booksRouter);
 app.use('/api/lookup', lookupRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
