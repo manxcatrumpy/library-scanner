@@ -69,7 +69,7 @@
         </div>
 
         <div class="w-full max-w-lg mb-6 text-center">
-            <p id="scan-instruction" class="text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼以建檔</p>
+            <p id="scan-instruction" class="hidden text-gray-500 mt-2 text-sm">請將鏡頭對準書本背面的 ISBN 條碼以建檔</p>
             <button onclick="toggleBookList()" class="mt-4 text-blue-600 font-semibold hover:underline border border-blue-600 rounded-lg px-4 py-2 hover:bg-blue-50 transition">
                 📂 查看已建檔書籍清單
             </button>
@@ -86,7 +86,7 @@
         </div>
 
         <!-- 掃描器畫面 -->
-        <div id="reader" class="w-full max-w-lg bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"></div>
+        <div id="reader" class="hidden w-full max-w-lg bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"></div>
         
         <!-- 掃描與查詢結果 -->
         <div id="result-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
@@ -205,15 +205,15 @@
                         // 如果是管理員，顯示管理員按鈕與掃描建檔功能
                         if (user.role === 'ADMIN') {
                             document.getElementById('admin-panel-btn-container').classList.remove('hidden');
-                            document.getElementById('scan-instruction').classList.remove('hidden');
-                            document.getElementById('reader').classList.remove('hidden');
                             document.getElementById('search-container').classList.remove('hidden');
-                            // 啟動掃描器
-                            html5QrcodeScanner.render(onScanSuccess);
+                            // 暫時隱藏相機掃描器功能
+                            // document.getElementById('scan-instruction').classList.remove('hidden');
+                            // document.getElementById('reader').classList.remove('hidden');
+                            // html5QrcodeScanner.render(onScanSuccess);
                         } else {
-                            // 不是管理員，隱藏建檔專用的掃描器與搜尋列
-                            document.getElementById('scan-instruction').classList.add('hidden');
-                            document.getElementById('reader').classList.add('hidden');
+                            // 不是管理員，隱藏建檔專用的搜尋列
+                            // document.getElementById('scan-instruction').classList.add('hidden');
+                            // document.getElementById('reader').classList.add('hidden');
                             document.getElementById('search-container').classList.add('hidden');
                             // 自動顯示書單
                             toggleBookList(true);
@@ -734,8 +734,8 @@
             false
         );
 
-        // 啟動掃描器
-        html5QrcodeScanner.render(onScanSuccess);
+        // 暫時隱藏：啟動掃描器
+        // html5QrcodeScanner.render(onScanSuccess);
         
         // 微調 html5-qrcode 自動產生的元素樣式以符合 Tailwind
         // 由於 DOM 是非同步生成的，我們用 MutationObserver 監聽按鈕的產生
