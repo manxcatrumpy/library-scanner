@@ -92,7 +92,6 @@
         <div id="result-card" class="hidden mt-6 w-full max-w-lg bg-white rounded-xl shadow-lg p-6 border border-gray-200">
             <div class="flex flex-col items-center text-center">
                 <div id="status-text" class="text-lg font-semibold text-blue-600 mb-4 bg-blue-50 px-4 py-2 rounded-full w-full">讀取中...</div>
-                <img id="book-cover" src="" alt="書本封面" class="hidden w-32 h-auto object-cover rounded-md shadow-md mb-4 border border-gray-100">
                 <h3 id="book-title" class="text-xl font-bold text-gray-800 mb-2 leading-tight"></h3>
                 <p id="book-authors" class="text-md text-gray-600 font-medium"></p>
             </div>
@@ -359,24 +358,16 @@
             }
         }
 
-        function showResultCard(title, authors, thumbnailUrl) {
+        function showResultCard(title, authors) {
             document.getElementById('result-card').classList.remove('hidden');
             document.getElementById('manual-entry-card').classList.add('hidden');
             
             const titleEl = document.getElementById('book-title');
             const authorsEl = document.getElementById('book-authors');
-            const coverEl = document.getElementById('book-cover');
             
             updateStatus("✅ 查詢成功！", false, true);
             titleEl.innerText = title;
             authorsEl.innerText = `作者：${authors}`;
-            
-            if (thumbnailUrl) {
-                coverEl.src = thumbnailUrl;
-                coverEl.classList.remove('hidden');
-            } else {
-                coverEl.classList.add('hidden');
-            }
         }
 
         function showManualForm(isbn) {
@@ -412,8 +403,6 @@
             document.getElementById('result-card').classList.remove('hidden');
             document.getElementById('manual-entry-card').classList.add('hidden');
             
-            const coverEl = document.getElementById('book-cover');
-            coverEl.classList.add('hidden');
             document.getElementById('book-title').innerText = "";
             document.getElementById('book-authors').innerText = "";
 
@@ -424,7 +413,7 @@
                 
                 if (response.ok) {
                     const book = await response.json();
-                    showResultCard(book.title, book.author, book.coverUrl);
+                    showResultCard(book.title, book.author);
                 } else {
                     updateStatus(`館藏中找不到這本書 (ISBN: ${isbn})`, true);
                 }
@@ -487,7 +476,7 @@
                 const data = await response.json();
                 
                 if (data && data.title) {
-                    showResultCard(data.title, data.author, data.coverUrl);
+                    showResultCard(data.title, data.author);
                     // 順便儲存到資料庫
                     saveBookToDatabase({
                         isbn: isbn,
@@ -677,7 +666,7 @@
                         thumbnailUrl = bookData.cover.medium;
                     }
 
-                    showResultCard(title, authors, thumbnailUrl);
+                    showResultCard(title, authors);
                     saveBookToDatabase({ isbn, title, author: authors, coverUrl: thumbnailUrl });
                 } else {
                     // Open Library 也查不到，呼叫本地爬蟲
@@ -694,8 +683,6 @@
             document.getElementById('result-card').classList.remove('hidden');
             document.getElementById('manual-entry-card').classList.add('hidden');
             
-            const coverEl = document.getElementById('book-cover');
-            coverEl.classList.add('hidden');
             document.getElementById('book-title').innerText = "";
             document.getElementById('book-authors').innerText = "";
 
@@ -722,7 +709,7 @@
                      thumbnailUrl = volumeInfo.imageLinks.thumbnail.replace("http:", "https:");
                 }
 
-                showResultCard(title, authors, thumbnailUrl);
+                showResultCard(title, authors);
                 saveBookToDatabase({ isbn, title, author: authors, coverUrl: thumbnailUrl, publishYear: volumeInfo.publishedDate });
 
             } catch (error) {
