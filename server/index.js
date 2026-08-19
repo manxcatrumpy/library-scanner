@@ -13,10 +13,12 @@ app.use(express.json());
 const booksRouter = require('./routes/books');
 const lookupRouter = require('./routes/lookup');
 const authRouter = require('./routes/auth');
+const adminRouter = require('./routes/admin');
 
 app.use('/api/books', booksRouter);
 app.use('/api/lookup', lookupRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
