@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const { isAdmin } = require('../middlewares/authMiddleware');
 const prisma = new PrismaClient();
 
 // POST /api/books - 新增書籍
-router.post('/', async (req, res) => {
+router.post('/', isAdmin, async (req, res) => {
     try {
         const { isbn, title, author, publishYear, coverUrl } = req.body;
         
@@ -52,7 +53,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/books/:id - 編輯書籍
-router.put('/:id', async (req, res) => {
+router.put('/:id', isAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { title, author, publishYear } = req.body;
@@ -74,7 +75,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/books/:id - 刪除書籍
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', isAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         await prisma.book.delete({
