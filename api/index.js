@@ -4,6 +4,7 @@ const cors = require('cors');
 // Import routes from the server folder
 const booksRouter = require('../server/routes/books');
 const lookupRouter = require('../server/routes/lookup');
+const authRouter = require('../server/routes/auth');
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 // API Routes
 app.use('/api/books', booksRouter);
 app.use('/api/lookup', lookupRouter);
+app.use('/api/auth', authRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
